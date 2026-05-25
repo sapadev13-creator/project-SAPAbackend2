@@ -1,0 +1,179 @@
+==========================================================================================
+LAPORAN IMPROVEMENT DATASET KEYWORDS & PREDIKSI
+==========================================================================================
+
+1. RINGKASAN PERUBAHAN YANG TELAH DILAKUKAN
+------------------------------------------------------------------------------------------
+
+  ✓ OCEAN Weight Optimization
+     → 20 traits dioptimasi dengan multi-dimensi approach
+
+  ✓ Negative Traits Enhanced
+     → Ditambah C dimension untuk discrimination lebih baik
+
+  ✓ Positive Traits Enriched
+     → Ditambah O dimension untuk nuansa lebih dalam
+
+  ✓ Extreme Negative Strengthened
+     → N: 1.8→2.0, Added O: -0.4 untuk crisis detection
+
+  ✓ Phrase Quality Audit
+     → 2 phrase sangat panjang diidentifikasi untuk shortening
+
+
+2. IMPACT ANALYSIS PER TRAIT
+------------------------------------------------------------------------------------------
+
+  EXTREME_NEGATIVE               ( 42 keywords)
+     Impact: A:-0.60, C:-0.60, E:-0.80, N:+2.00, O:-0.40
+     Score:  184.80
+
+  ANXIETY_EMO                    (180 keywords)
+     Impact: E:-0.20, N:+0.55, O:-0.10
+     Score:  153.00
+
+  SAD_EMO                        (180 keywords)
+     Impact: E:-0.10, N:+0.40, O:+0.05
+     Score:  99.00
+
+  ANGER_EMO                      (180 keywords)
+     Impact: A:-0.20, C:-0.10, N:+0.50
+     Score:  144.00
+
+  MENTAL_UNSTABLE_N              (180 keywords)
+     Impact: C:-0.20, N:+0.80
+     Score:  180.00
+
+  EMO_NEGATIVE                   (180 keywords)
+     Impact: A:-0.15, C:-0.10, E:-0.15, N:+0.50, O:+0.05
+     Score:  171.00
+
+  NEGATIVE_SOCIAL                (180 keywords)
+     Impact: A:-0.30, C:-0.10, E:-0.20, N:+0.40
+     Score:  180.00
+
+  EXTRAVERSION_E                 (180 keywords)
+     Impact: A:+0.25, E:+0.55, N:-0.15, O:+0.10
+     Score:  189.00
+
+  POSITIVE_SOCIAL                (180 keywords)
+     Impact: A:+0.40, C:+0.10, E:+0.40, N:-0.20
+     Score:  198.00
+
+  EMO_POSITIVE                   (180 keywords)
+     Impact: A:+0.30, E:+0.30, N:-0.20, O:+0.10
+     Score:  162.00
+
+  COLLABORATION                  (180 keywords)
+     Impact: A:+0.60, C:+0.20, E:+0.30, N:-0.10
+     Score:  216.00
+
+  RELATIONSHIP_AFFECTION         (180 keywords)
+     Impact: A:+0.70, E:+0.20, N:-0.10, O:+0.10
+     Score:  198.00
+
+  EMPATHY_HARMONY_A              (180 keywords)
+     Impact: A:+0.70, E:+0.10, N:-0.30
+     Score:  198.00
+
+  TRUST                          (180 keywords)
+     Impact: A:+0.50, E:+0.10, N:-0.15
+     Score:  135.00
+
+  CREATIVE_DISCUSSION_A          (180 keywords)
+     Impact: A:+0.10, E:+0.20, O:+0.60
+     Score:  162.00
+
+  INTROSPECTION                  (180 keywords)
+     Impact: E:-0.10, N:+0.15, O:+0.50
+     Score:  135.00
+
+  DISCIPLINE_C                   (180 keywords)
+     Impact: C:+0.85, E:-0.10, N:-0.20
+     Score:  207.00
+
+  ACHIEVEMENT                    (180 keywords)
+     Impact: C:+0.60, E:+0.20, N:-0.10, O:+0.15
+     Score:  189.00
+
+  E_SOCIAL_DEPENDENCY            (180 keywords)
+     Impact: A:+0.20, E:+0.40, N:+0.05
+     Score:  117.00
+
+
+3. DIMENSI YANG DIGUNAKAN
+------------------------------------------------------------------------------------------
+
+  N: Neuroticism - emotional sensitivity, anxiety, sadness
+     Digunakan di 18 traits (95%)
+
+  E: Extraversion - sociability, activity, dominance
+     Digunakan di 17 traits (89%)
+
+  O: Openness - imagination, intellectual curiosity
+     Digunakan di 10 traits (53%)
+
+  A: Agreeableness - cooperation, compassion, trust
+     Digunakan di 13 traits (68%)
+
+  C: Conscientiousness - discipline, organization, responsibility
+     Digunakan di 9 traits (47%)
+
+
+4. REKOMENDASI PELAKSANAAN LEBIH LANJUT
+------------------------------------------------------------------------------------------
+
+  Fase 1:
+    ✓ Already done: Update KEYWORD_TRAIT_MAP di sapa_api/keywords.py
+    ○ Run: python scripts/clean_keywords_traits.py (untuk re-validate)
+    ○ Test: Test dengan sample predictions untuk lihat improvement
+
+  Fase 2:
+    ○ Tambah recommended keywords dari RECOMMENDED_ADDITIONS
+    ○ Shortening 2 phrase panjang (>60 char):
+        - 'aku memikirkan ulang kata-kataku...' → 'overthinking'
+        - 'aku terlalu memikirkan kehilangan...' → 'khawatir kehilangan'
+    ○ Re-balance keywords distribution jika ada kategori <150 keywords
+
+  Fase 3:
+    ○ Semantic enrichment: Tambah phrase-phrase semantik serupa
+    ○ Cross-trait validation: Ensure tidak ada conflicting keywords
+    ○ Monitor prediction results: Track improvement metrics
+
+
+5. EXPECTED IMPROVEMENTS
+------------------------------------------------------------------------------------------
+
+  • Better emotional trait distinction (tidak hanya N tinggi)
+
+  • Improved positive trait detection (added C, O dimensions)
+
+  • More nuanced predictions (multi-dimensional approach)
+
+  • Better crisis detection (stronger EXTREME_NEGATIVE signal)
+
+  • Reduced false positives (better agreeableness handling)
+
+
+6. MONITORING METRICS
+------------------------------------------------------------------------------------------
+
+  Untuk memantau improvement, track:
+  1. Prediction distribution per trait:
+     - Negative traits lebih terdistribusi (tidak hanya N)
+     - Positive traits lebih recognized
+     - Extreme cases lebih tergantung
+  
+  2. Cross-validation dengan test dataset:
+     - Label consistency
+     - Confidence scores improvement
+     - False positive/negative rates
+  
+  3. User feedback:
+     - Perceived accuracy improvement
+     - Consistency across similar inputs
+
+
+==========================================================================================
+Report generated for DATASET IMPROVEMENT v2.1
+==========================================================================================
