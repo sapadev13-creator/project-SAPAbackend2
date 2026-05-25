@@ -16,6 +16,7 @@ from sapa_api.text_utils import (
     has_empathy_validation_context,
     has_positive_context,
     has_relationship_affection_context,
+    has_social_enjoyment_context,
     tokenize,
 )
 
@@ -87,9 +88,10 @@ ROMANTIC_AFFECTION_PHRASES = (
 )
 
 SOCIAL_POSITIVE_PHRASES = (
-    "suka bertemu orang", "aktif bersosialisasi", "komunikatif",
-    "percaya diri sosial", "suka ngobrol", "networking",
-    "suka bergaul", "bergaul dan aktif",
+    "menikmati acara sosial", "acara sosial", "seminar", "komunitas",
+    "pertemuan besar", "event sosial", "suka bertemu orang",
+    "aktif bersosialisasi", "komunikatif", "percaya diri sosial",
+    "suka ngobrol", "networking", "suka bergaul", "bergaul dan aktif",
 )
 
 # Kategori Excel → dimensi OCEAN dominan yang diharapkan
@@ -165,7 +167,7 @@ class TextIntent:
         elif p == "adaptive":
             boosts.update({"A": 0.25, "E": 0.2, "N": -0.12, "O": -0.05})
         elif p == "social_positive":
-            boosts.update({"E": 0.45, "A": 0.12, "N": -0.1, "O": -0.05})
+            boosts.update({"E": 0.58, "A": 0.1, "N": -0.1, "O": -0.08})
         elif p == "social_dependency":
             boosts.update({"E": 0.38, "A": 0.15, "N": 0.08, "O": -0.05})
         elif p == "negative_social":
@@ -177,7 +179,7 @@ class TextIntent:
         elif p == "achievement":
             boosts.update({"C": 0.28, "E": 0.1, "O": 0.08})
         elif p == "mixed_positive":
-            boosts.update({"A": 0.2, "E": 0.1, "N": -0.1})
+            boosts.update({"A": 0.32, "E": 0.08, "N": -0.12, "O": -0.1})
         elif p == "relationship_affection":
             boosts.update({"A": 0.48, "E": 0.14, "N": -0.1, "O": -0.2})
         return boosts
@@ -259,6 +261,14 @@ def classify_text_intent(
     if p := _first_match(t, ACHIEVEMENT_PHRASES):
         matched.append(("achievement", p))
         return TextIntent("achievement", matched_phrases=matched, category_hits=cat_hits)
+
+    if has_social_enjoyment_context(t) or (
+        cat_hits.get("POSITIVE_SOCIAL", 0) >= 1
+        and _first_match(t, SOCIAL_POSITIVE_PHRASES)
+    ):
+        p = _first_match(t, SOCIAL_POSITIVE_PHRASES) or "acara sosial"
+        matched.append(("social_positive", p))
+        return TextIntent("social_positive", matched_phrases=matched, category_hits=cat_hits)
 
     if has_relationship_affection_context(t) or (
         cat_hits.get("RELATIONSHIP_AFFECTION", 0) >= 1
@@ -350,22 +360,14 @@ def dominant_from_intent(
     """Dominan OCEAN dari intent + konstruk (intent menang jika kuat)."""
     from sapa_api.text_utils import ocean_only
 
-    if intent.primary == "crisis":
-        return "N"
-    if intent.primary == "relationship_affection":
-        return "A"
-    if intent.primary in INTENT_TO_OCEAN:
-        expected = INTENT_TO_OCEAN[intent.primary]
-        ocean = ocean_only(scores)
-        bias = 0.14 if expected == "A" else 0.08
-        boosted = ocean.get(expected, 0) + bias
-        others = max(ocean.get(k, 0) for k in OCEAN_TRAITS if k != expected)
-        if boosted >= others - 0.03:
-            return expected
-    if construct_ocean and intent.primary in ("neutral", "mixed_positive"):
-        return construct_ocean
-    if intent.category_hits:
-        ocean_from_cat = _score_categories(intent.category_hits)
-        if max(ocean_from_cat.values()) >= 1:
-            return max(ocean_from_cat, key=ocean_from_cat.get)
-    return None
+    from sapa_api.text_utils import dominant_from_adjusted_scores
+
+    if intent.primary == "neutral":
+        return None
+    ocean = ocean_only(scores)
+    expected = INTENT_TO_OCEAN.get(intent.primary)
+    if not expected:
+        return None
+    if ocean.get(expected, 0) >= max(ocean.values()) - 0.08:
+        return expected
+    return dominant_from_adjusted_scores(scores, intent.primary)

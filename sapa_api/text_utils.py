@@ -74,6 +74,26 @@ RELATIONSHIP_AFFECTION_PHRASES = (
     "rindu pacar",
 )
 
+# Menikmati interaksi / acara sosial — E (Extraversion), bukan sekadar O atau A
+SOCIAL_ENJOYMENT_PHRASES = (
+    "menikmati acara sosial",
+    "acara sosial",
+    "suka acara sosial",
+    "senang acara sosial",
+    "seminar",
+    "komunitas",
+    "pertemuan besar",
+    "event sosial",
+    "kumpul komunitas",
+    "aktif di komunitas",
+    "suka seminar",
+    "suka networking",
+    "suka bertemu orang",
+    "aktif bersosialisasi",
+    "suka bergaul",
+    "bergaul dan aktif",
+)
+
 EMPATHY_VALIDATION_PHRASES = (
     "perasaan yang didengarkan",
     "perasaan yang divalidasi",
@@ -163,6 +183,24 @@ def has_empathy_validation_context(text_lower: str) -> bool:
     return any(p in text_lower for p in EMPATHY_VALIDATION_PHRASES)
 
 
+def has_social_enjoyment_context(text_lower: str) -> bool:
+    if has_distress_language(text_lower) or has_crisis_language(text_lower):
+        return False
+    if any(p in text_lower for p in SOCIAL_ENJOYMENT_PHRASES):
+        return True
+    social_hits = sum(
+        1
+        for w in ("sosial", "seminar", "komunitas", "networking", "bergaul")
+        if w in text_lower
+    )
+    return social_hits >= 2 and (
+        "menikmati" in text_lower
+        or "senang" in text_lower
+        or "suka" in text_lower
+        or "aktif" in text_lower
+    )
+
+
 def has_relationship_affection_context(text_lower: str) -> bool:
     if has_empathy_validation_context(text_lower):
         return False
@@ -242,6 +280,87 @@ def assess_text_sufficiency(text: str) -> TextSufficiency:
 
 def ocean_only(scores: dict) -> dict:
     return {k: float(scores[k]) for k in OCEAN_TRAITS if k in scores}
+
+
+def align_scores_to_intent_dominance(
+    scores: dict,
+    intent_primary: str | None,
+    margin: float = 0.1,
+) -> dict:
+    """
+    Pastikan dimensi intent memiliki skor tertinggi (dominant_trait = argmax OCEAN).
+    Dipanggil setelah limit_ocean_delta agar penyesuaian tidak terpotong.
+    """
+    if not intent_primary or intent_primary == "neutral":
+        return scores
+
+    intent_top = {
+        "crisis": "N",
+        "anxiety": "N",
+        "sad": "N",
+        "anger": "N",
+        "negative_social": "N",
+        "empathy_validation": "A",
+        "relationship_affection": "A",
+        "adaptive": "A",
+        "mixed_positive": "A",
+        "social_positive": "E",
+        "social_dependency": "E",
+        "creative": "O",
+        "discipline": "C",
+        "achievement": "C",
+    }
+    target = intent_top.get(intent_primary)
+    if not target:
+        return scores
+
+    out = scores.copy()
+    ocean = ocean_only(out)
+    top_val = max(ocean.values())
+    if ocean.get(target, 0) >= top_val - 0.01:
+        return out
+
+    out[target] = round(min(5.0, top_val + margin), 3)
+    return out
+
+
+def dominant_from_adjusted_scores(
+    scores: dict,
+    intent_primary: str | None = None,
+    tie_margin: float = 0.03,
+) -> str:
+    """
+    Trait dominan = dimensi OCEAN dengan skor tertinggi pada prediction_adjusted.
+    Intent hanya dipakai sebagai tie-break jika selisih <= tie_margin.
+    """
+    ocean = ocean_only(scores)
+    if not ocean:
+        return "O"
+    top_val = max(ocean.values())
+    leaders = [k for k, v in ocean.items() if v >= top_val - tie_margin]
+    if len(leaders) == 1:
+        return leaders[0]
+    intent_ocean = {
+        "crisis": "N",
+        "anxiety": "N",
+        "sad": "N",
+        "anger": "N",
+        "negative_social": "N",
+        "empathy_validation": "A",
+        "relationship_affection": "A",
+        "adaptive": "A",
+        "social_positive": "E",
+        "social_dependency": "E",
+        "creative": "O",
+        "discipline": "C",
+        "achievement": "C",
+        "mixed_positive": "A",
+    }
+    if intent_primary and intent_primary in intent_ocean:
+        preferred = intent_ocean[intent_primary]
+        if preferred in leaders:
+            return preferred
+    return max(ocean, key=ocean.get)
 
 
 def clamp_ocean(scores: dict, lo: float = 1.0, hi: float = 5.0) -> dict:

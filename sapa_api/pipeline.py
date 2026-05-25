@@ -22,7 +22,13 @@ from sapa_api.semantic import (
     aggregate_semantic_subtraits,
     matches_to_expansion_candidates,
 )
-from sapa_api.text_utils import assess_text_sufficiency, limit_ocean_delta, scale_adjustment_delta
+from sapa_api.text_utils import (
+    align_scores_to_intent_dominance,
+    assess_text_sufficiency,
+    clamp_ocean,
+    limit_ocean_delta,
+    scale_adjustment_delta,
+)
 from sapa_api.sentiment_modifiers import (
     apply_modifier_ocean_adjustment,
     modifier_explanation_note,
@@ -93,6 +99,8 @@ def compute_ocean_prediction(text: str):
     if sufficiency.analysis_mode != "trait" and crisis_level == "none":
         adjusted = scale_adjustment_delta(raw, adjusted, conf)
 
+    adjusted = align_scores_to_intent_dominance(adjusted, text_intent.primary, margin=0.12)
+    adjusted = clamp_ocean(adjusted)
     dominant = determine_dominant_trait(
         adjusted, work_text, construct_matches, intent=text_intent
     )

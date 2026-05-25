@@ -44,6 +44,9 @@ CONSTRUCT_PHRASES: dict[str, list[tuple[str, dict[str, float]]]] = {
         ("tepat waktu", {"C": 0.55}),
     ],
     "E": [
+        ("menikmati acara sosial", {"E": 0.72, "A": 0.12, "O": 0.05}),
+        ("acara sosial", {"E": 0.65, "A": 0.1}),
+        ("pertemuan besar", {"E": 0.6, "A": 0.08}),
         ("suka bergaul", {"E": 0.65, "A": 0.2}),
         ("percaya diri sosial", {"E": 0.7}),
         ("aktif bersosialisasi", {"E": 0.65}),

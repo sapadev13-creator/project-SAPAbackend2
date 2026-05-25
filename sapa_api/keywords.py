@@ -14,6 +14,9 @@ from sapa_api.text_utils import (
     has_empathy_validation_context,
     has_relationship_affection_context,
     has_positive_context,
+    has_social_enjoyment_context,
+    align_scores_to_intent_dominance,
+    dominant_from_adjusted_scores,
     is_meaningful_token,
     limit_ocean_delta,
     ocean_only,
@@ -58,8 +61,8 @@ KEYWORD_TRAIT_MAP = {
     "ANXIETY_EMO": {"N": 0.55, "E": -0.2, "O": -0.1},
     "MENTAL_UNSTABLE_N": {"N": 0.8, "C": -0.2},
     "NEGATIVE_SOCIAL": {"N": 0.4, "A": -0.3, "E": -0.2, "C": -0.1},
-    "POSITIVE_SOCIAL": {"E": 0.4, "A": 0.4, "N": -0.2, "C": 0.1},
-    "EXTRAVERSION_E": {"E": 0.55, "A": 0.25, "N": -0.15, "O": 0.1},
+    "POSITIVE_SOCIAL": {"E": 0.58, "A": 0.18, "N": -0.15, "O": 0.05},
+    "EXTRAVERSION_E": {"E": 0.62, "A": 0.15, "N": -0.15, "O": 0.05},
     "E_SOCIAL_DEPENDENCY": {"E": 0.4, "A": 0.2, "N": 0.05},
     "COLLABORATION": {"A": 0.6, "E": 0.3, "C": 0.2, "N": -0.1},
     "RELATIONSHIP_AFFECTION": {"A": 0.78, "E": 0.18, "O": -0.08, "N": -0.1},
@@ -249,11 +252,12 @@ def adjust_ocean_by_keywords(scores: dict, text: str, confidence_scale: float = 
     adjusted = clamp_ocean(adjusted)
     if detect_crisis_level(text_lower) == "none":
         adjusted = limit_ocean_delta(scores, adjusted, max_delta=0.95 * confidence_scale + 0.2)
+
+    adjusted = align_scores_to_intent_dominance(adjusted, intent.primary, margin=0.12)
+    adjusted = clamp_ocean(adjusted)
     adjusted["EXTREME_ALERT"] = round(min(adjusted.get("EXTREME_ALERT", 0), 5.0), 3)
 
-    construct_dom = dominant_from_constructs(adjusted, construct_matches)
-    intent_dom = dominant_from_intent(adjusted, intent, construct_dom)
-    dominant = intent_dom or construct_dom or max(ocean_only(adjusted), key=ocean_only(adjusted).get)
+    dominant = dominant_from_adjusted_scores(adjusted, intent.primary)
     return dominant, adjusted, construct_matches, intent
 
 
@@ -272,6 +276,13 @@ def apply_emotional_keyword_adjustment(
         adjusted["N"] = adjusted.get("N", 3.0) + n_boost
         if "cemas" in tokens or "stres" in tokens or "terganggu" in tokens:
             adjusted["E"] = adjusted.get("E", 3.0) - 0.08 * confidence_scale
+        return clamp_ocean(adjusted)
+
+    if has_social_enjoyment_context(text_lower):
+        adjusted["E"] = adjusted.get("E", 3.0) + 0.15 * confidence_scale
+        adjusted["A"] = adjusted.get("A", 3.0) + 0.04 * confidence_scale
+        adjusted["O"] = adjusted.get("O", 3.0) - 0.08 * confidence_scale
+        adjusted["N"] = adjusted.get("N", 3.0) - 0.06 * confidence_scale
         return clamp_ocean(adjusted)
 
     if has_relationship_affection_context(text_lower):
@@ -327,48 +338,17 @@ def determine_dominant_trait(
     intent=None,
 ) -> str:
     text_lower = text.lower()
-    ocean = ocean_only(scores)
-
     if intent is None:
         intent = classify_text_intent(text)
 
-    intent_dom = dominant_from_intent(ocean, intent)
-    if intent_dom:
-        return intent_dom
-
-    if construct_matches:
-        dom = dominant_from_constructs(ocean, construct_matches)
-        if dom and intent.primary == "neutral":
-            return dom
-
-    if has_empathy_validation_context(text_lower):
-        return "A"
-
-    if has_relationship_affection_context(text_lower) or (
-        intent and intent.primary == "relationship_affection"
-    ):
-        return "A"
-
-    if has_distress_language(text_lower) and not has_positive_context(text_lower):
-        n_score = ocean.get("N", 0)
-        if n_score >= max(ocean.get("O", 0), ocean.get("A", 0), ocean.get("E", 0)) - 0.05:
-            return "N"
-        if any(p in text_lower for p in ("cemas", "stres", "terganggu", "kepikiran", "khawatir")):
-            return "N"
-
-    if has_positive_context(text_lower):
-        if any(p in text_lower for p in ("menyesuaikan diri", "lingkungan baru", "beradaptasi")):
-            candidates = {
-                "E": ocean.get("E", 0) + 0.08,
-                "A": ocean.get("A", 0) + 0.12,
-                "O": ocean.get("O", 0),
-            }
-            return max(candidates, key=candidates.get)
-
+    work = align_scores_to_intent_dominance(scores, intent.primary, margin=0.12)
+    work = clamp_ocean(work)
+    ocean = ocean_only(work)
     crisis_level = detect_crisis_level(text_lower)
-    if crisis_level in ("critical", "high"):
+    if crisis_level in ("critical", "high") and ocean.get("N", 0) >= max(ocean.values()) - 0.2:
         return "N"
-    if scores.get("EXTREME_ALERT", 0) >= 3.5 and has_crisis_language(text_lower):
-        return "N"
+    if work.get("EXTREME_ALERT", 0) >= 3.5 and has_crisis_language(text_lower):
+        if ocean.get("N", 0) >= max(ocean.values()) - 0.15:
+            return "N"
 
-    return max(ocean, key=ocean.get)
+    return dominant_from_adjusted_scores(work, intent.primary)

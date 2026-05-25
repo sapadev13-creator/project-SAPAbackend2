@@ -33,6 +33,11 @@ CASES = [
     ("merasa sayang dan hangat saat bersama kekasih", "A", "Romantis"),
     ("romantis dan penuh kasih sayang pada orang tersayang", "A", "Romantis"),
     ("cinta mati-matian pada pacar", "A", "Romantis"),
+    (
+        "Saya menikmati acara sosial seperti seminar, komunitas, dan pertemuan besar.",
+        "E",
+        "Ekstrovert",
+    ),
 ]
 
 
@@ -45,13 +50,19 @@ def predict(text: str) -> dict:
     from sapa_api.sentiment_modifiers import apply_modifier_ocean_adjustment
     from sapa_api.crisis import apply_crisis_adjustment
     from sapa_api.persona import generate_persona_profile
-    from sapa_api.text_utils import assess_text_sufficiency
+    from sapa_api.text_utils import (
+        align_scores_to_intent_dominance,
+        assess_text_sufficiency,
+        clamp_ocean,
+    )
 
     s = assess_text_sufficiency(text)
     _, adj, cm, intent = adjust_ocean_by_keywords(dict(RAW), text, s.confidence_scale)
     adj = apply_emotional_keyword_adjustment(text, adj, s.confidence_scale)
     adj, _ = apply_modifier_ocean_adjustment(adj, text, s.confidence_scale)
     adj, _ = apply_crisis_adjustment(adj, text)
+    adj = align_scores_to_intent_dominance(adj, intent.primary, margin=0.12)
+    adj = clamp_ocean(adj)
     dom = determine_dominant_trait(adj, text, cm, intent=intent)
     persona = generate_persona_profile(
         adj, text, s, cm, text_intent=intent, evidence={}
@@ -61,6 +72,8 @@ def predict(text: str) -> dict:
         "intent": intent.primary,
         "persona": persona[0] if persona else "",
         "O": round(adj["O"], 2),
+        "C": round(adj.get("C", 3), 2),
+        "E": round(adj["E"], 2),
         "A": round(adj["A"], 2),
         "N": round(adj["N"], 2),
     }
