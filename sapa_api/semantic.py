@@ -60,11 +60,19 @@ def prepare_embedding_index():
 
 
 def encode_text(text: str) -> np.ndarray | None:
-    if state.tokenizer is None or state.model is None:
+    batch = encode_texts_batch([text])
+    if batch is None:
+        return None
+    return batch[0]
+
+
+def encode_texts_batch(texts: list[str]) -> np.ndarray | None:
+    """Embedding CLS untuk banyak teks sekaligus (lebih cepat untuk Excel batch)."""
+    if not texts or state.tokenizer is None or state.model is None:
         return None
     enc = state.tokenizer(
-        text,
-        padding="max_length",
+        texts,
+        padding=True,
         truncation=True,
         max_length=MAX_LEN,
         return_tensors="pt",
@@ -75,9 +83,9 @@ def encode_text(text: str) -> np.ndarray | None:
             input_ids=enc["input_ids"],
             attention_mask=enc["attention_mask"],
         )
-        vec = out.last_hidden_state[:, 0, :].cpu().numpy()[0].astype(np.float32)
-    norm = np.linalg.norm(vec)
-    return vec / (norm + 1e-8)
+        vecs = out.last_hidden_state[:, 0, :].cpu().numpy().astype(np.float32)
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    return vecs / (norms + 1e-8)
 
 
 def _phrase_ontology_hits(tokens: list[str], token_set: set[str]) -> dict[int, float]:
@@ -102,6 +110,9 @@ def compute_semantic_matches(
     text: str,
     top_k: int = SEMANTIC_TOP_K,
     threshold: float = SEMANTIC_THRESHOLD,
+    text_vec: np.ndarray | None = None,
+    *,
+    skip_embedding: bool = False,
 ) -> list[dict]:
     if state.ONT_EMB_NORM is None or state.ONT_META is None:
         return []
@@ -114,8 +125,11 @@ def compute_semantic_matches(
     combined: dict[int, float] = _phrase_ontology_hits(tokens, token_set)
 
     embed_threshold = 0.52 if not combined else threshold
-    text_vec = encode_text(text)
+    if not skip_embedding and text_vec is None:
+        text_vec = encode_text(text)
     if text_vec is not None:
+        if text_vec.ndim == 2:
+            text_vec = text_vec[0]
         sims = state.ONT_EMB_NORM @ text_vec
         for idx in np.where(sims >= embed_threshold)[0]:
             idx = int(idx)

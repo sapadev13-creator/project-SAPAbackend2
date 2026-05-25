@@ -168,8 +168,26 @@ def compute_ocean_prediction(text: str):
     }
 
 
-def run_ocean_pipeline(text: str, username: str | None = None):
+def run_ocean_pipeline(
+    text: str,
+    username: str | None = None,
+    *,
+    fast: bool = False,
+    include_chart: bool = True,
+):
     """Pipeline untuk Twitter / Excel — membungkus compute_ocean_prediction."""
+    if fast:
+        from sapa_api.batch_processing import compute_ocean_prediction_lite
+
+        out = compute_ocean_prediction_lite(
+            text,
+            skip_chart=not include_chart,
+            skip_heavy_evidence=True,
+        )
+        if username is not None:
+            out["username"] = username
+        return out
+
     pred = compute_ocean_prediction(text)
     try:
         chart = generate_ocean_chart(pred["adjusted"])

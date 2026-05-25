@@ -13,7 +13,12 @@ from sapa_api.semantic import (
 )
 
 
-def build_lexical_vector_with_analysis(text: str):
+def build_lexical_vector_with_analysis(
+    text: str,
+    *,
+    semantic_text_vec=None,
+    skip_semantic_embedding: bool = False,
+):
     vec = torch.zeros(state.LEXICAL_SIZE)
     tokens = re.findall(r"\w+", text.lower())
     token_set = set(tokens)
@@ -47,7 +52,11 @@ def build_lexical_vector_with_analysis(text: str):
                 "match_type": "exact",
             })
 
-    semantic_matches = compute_semantic_matches(text)
+    semantic_matches = compute_semantic_matches(
+        text,
+        text_vec=semantic_text_vec,
+        skip_embedding=skip_semantic_embedding,
+    )
     semantic_tokens = apply_semantic_to_lexical(
         vec, semantic_matches, evidence, subtrait_scores
     )

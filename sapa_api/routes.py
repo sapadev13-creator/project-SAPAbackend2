@@ -156,22 +156,40 @@ def predict_other_profile(data: dict, request: Request):
         raise HTTPException(500, f"Server error: {str(e)}") from e
 
 
-async def _process_excel_upload(file: UploadFile, with_profile: bool):
-    if not file.filename.endswith(".xlsx"):
+def _process_excel_upload_sync(
+    file_bytes: bytes,
+    filename: str,
+    with_profile: bool,
+    *,
+    fast: bool,
+    batch_size: int,
+    include_row_details: bool,
+    include_charts: bool,
+):
+    from io import BytesIO
+
+    from sapa_api.batch_processing import process_texts_batch
+
+    if not filename.endswith(".xlsx"):
         raise HTTPException(400, "File harus berformat .xlsx")
 
-    df = pd.read_excel(file.file)
+    df = pd.read_excel(BytesIO(file_bytes))
     if "text" not in df.columns:
         raise HTTPException(400, "Excel harus memiliki kolom 'text'")
 
-    results = []
+    items: list[tuple[int, str]] = []
     for idx, row in df.iterrows():
         text = str(row["text"])
-        if not text.strip():
-            continue
-        r = run_ocean_pipeline(text=text)
-        r["row_index"] = idx
-        results.append(r)
+        if text.strip():
+            items.append((int(idx), text))
+
+    results, timing = process_texts_batch(
+        items,
+        fast=fast,
+        batch_size=max(1, min(batch_size, 64)),
+        include_charts=include_charts,
+        include_heavy_details=include_row_details,
+    )
 
     df_detail = build_excel_rows(results)
     profile_summary = None
@@ -183,37 +201,88 @@ async def _process_excel_upload(file: UploadFile, with_profile: bool):
     excel_buffer = dataframe_to_excel_bytes(df_detail, profile_summary=profile_summary)
     excel_b64 = excel_buffer_to_base64(excel_buffer)
 
-    if with_profile:
-        return {
-            "status": "success",
-            "total_text": len(results),
-            "row_results": results,
-            "profile_summary": profile_summary,
-            "excel": {
-                "filename": "ocean_profile_result.xlsx",
-                "content_base64": excel_b64,
-            },
-        }
-
-    return {
+    payload = {
         "status": "success",
-        "total_rows": len(results),
-        "results": results,
+        "processing": timing,
         "excel": {
-            "filename": "ocean_result.xlsx",
+            "filename": (
+                "ocean_profile_result.xlsx" if with_profile else "ocean_result.xlsx"
+            ),
             "content_base64": excel_b64,
         },
     }
 
+    if with_profile:
+        payload["total_text"] = len(results)
+        payload["profile_summary"] = profile_summary
+        if include_row_details:
+            payload["row_results"] = results
+        return payload
+
+    payload["total_rows"] = len(results)
+    if include_row_details:
+        payload["results"] = results
+    return payload
+
+
+async def _process_excel_upload(
+    file: UploadFile,
+    with_profile: bool,
+    *,
+    fast: bool = True,
+    batch_size: int = 16,
+    include_row_details: bool = False,
+    include_charts: bool = False,
+):
+    import asyncio
+
+    body = await file.read()
+    return await asyncio.to_thread(
+        _process_excel_upload_sync,
+        body,
+        file.filename or "upload.xlsx",
+        with_profile,
+        fast=fast,
+        batch_size=batch_size,
+        include_row_details=include_row_details,
+        include_charts=include_charts,
+    )
+
 
 @router.post("/predict/excel")
-async def predict_from_excel(file: UploadFile = File(...)):
-    return await _process_excel_upload(file, with_profile=False)
+async def predict_from_excel(
+    file: UploadFile = File(...),
+    fast: bool = True,
+    batch_size: int = 16,
+    include_row_details: bool = False,
+    include_charts: bool = False,
+):
+    return await _process_excel_upload(
+        file,
+        with_profile=False,
+        fast=fast,
+        batch_size=batch_size,
+        include_row_details=include_row_details,
+        include_charts=include_charts,
+    )
 
 
 @router.post("/predict/excel/profile")
-async def predict_from_excel_profile(file: UploadFile = File(...)):
-    return await _process_excel_upload(file, with_profile=True)
+async def predict_from_excel_profile(
+    file: UploadFile = File(...),
+    fast: bool = True,
+    batch_size: int = 16,
+    include_row_details: bool = False,
+    include_charts: bool = False,
+):
+    return await _process_excel_upload(
+        file,
+        with_profile=True,
+        fast=fast,
+        batch_size=batch_size,
+        include_row_details=include_row_details,
+        include_charts=include_charts,
+    )
 
 
 @router.post("/predict")

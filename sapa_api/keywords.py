@@ -33,6 +33,7 @@ from sapa_api.trait_constructs import (
     apply_construct_adjustments,
     dominant_from_constructs,
 )
+from sapa_api.keyword_index import build_phrase_index, match_trait_phrases
 
 print("Mencoba membuka file:", KEYWORDS_XLSX)
 _kw_df = pd.read_excel(KEYWORDS_XLSX)
@@ -145,6 +146,7 @@ def _build_single_word_trait_map() -> dict[str, str]:
 
 
 _SINGLE_WORD_TRAIT = _build_single_word_trait_map()
+_PHRASE_INDEX = build_phrase_index(TRAIT_KEYWORDS)
 
 _BUNUH_VARIANTS = (
     ("ingin bunuh diri", ("pengen bunuh diri", "mau bunuh diri", "pengen bunuh")),
@@ -166,7 +168,13 @@ def _apply_trait_weights(adjusted: dict, weights: dict, scale: float):
         adjusted[ocean_dim] = adjusted.get(ocean_dim, 3.0) + w * scale
 
 
-def adjust_ocean_by_keywords(scores: dict, text: str, confidence_scale: float = 1.0):
+def adjust_ocean_by_keywords(
+    scores: dict,
+    text: str,
+    confidence_scale: float = 1.0,
+    *,
+    use_fuzzy_phrases: bool = True,
+):
     adjusted = {**ocean_only(scores), "EXTREME_ALERT": 0.0}
     text_lower = text.lower()
     tokens = tokenize(text)
@@ -194,48 +202,45 @@ def adjust_ocean_by_keywords(scores: dict, text: str, confidence_scale: float = 
             adjusted["EXTREME_ALERT"] += freq * 1.0 * confidence_scale
         _apply_trait_weights(adjusted, weights, freq * 0.5 * excel_scale)
 
-    for trait, keywords in TRAIT_KEYWORDS.items():
+    for trait, phrase in match_trait_phrases(
+        text_lower,
+        _PHRASE_INDEX,
+        phrase_matches_variant=_phrase_matches_variant,
+        fuzzy_match=fuzzy_phrase_match,
+        use_fuzzy=use_fuzzy_phrases,
+    ):
         if trait not in KEYWORD_TRAIT_MAP:
             continue
+        if trait == "EXTREME_NEGATIVE" and not (
+            crisis_lang or _phrase_is_crisis_extreme(phrase)
+        ):
+            continue
+
         weights = KEYWORD_TRAIT_MAP[trait]
-        for phrase in keywords:
-            if " " not in phrase:
-                continue
-            if (
-                phrase not in text_lower
-                and not _phrase_matches_variant(phrase, text_lower)
-                and not fuzzy_phrase_match(text_lower, phrase)
-            ):
-                continue
-            if trait == "EXTREME_NEGATIVE" and not (
-                crisis_lang or _phrase_is_crisis_extreme(phrase)
-            ):
-                continue
+        matched_phrases.append((trait, phrase))
+        scale = excel_scale
+        mod_scale, _ = phrase_modifier_scale(text_lower, phrase)
+        scale *= max(0.3, mod_scale)
+        if trait == "EXTREME_NEGATIVE" and crisis_lang:
+            adjusted["EXTREME_ALERT"] += 2.5 * confidence_scale * mod_scale
+        elif trait in POSITIVE_TRAITS:
+            scale *= 1.05
+        if mod_scale < 0:
+            inv = {k: -v for k, v in weights.items()}
+            _apply_trait_weights(adjusted, inv, abs(scale))
+        else:
+            _apply_trait_weights(adjusted, weights, scale)
 
-            matched_phrases.append((trait, phrase))
-            scale = excel_scale
-            mod_scale, _ = phrase_modifier_scale(text_lower, phrase)
-            scale *= max(0.3, mod_scale)
-            if trait == "EXTREME_NEGATIVE" and crisis_lang:
-                adjusted["EXTREME_ALERT"] += 2.5 * confidence_scale * mod_scale
-            elif trait in POSITIVE_TRAITS:
-                scale *= 1.05
-            if mod_scale < 0:
-                inv = {k: -v for k, v in weights.items()}
-                _apply_trait_weights(adjusted, inv, abs(scale))
-            else:
-                _apply_trait_weights(adjusted, weights, scale)
+        if trait == "EMPATHY_HARMONY_A" and has_empathy_validation_context(text_lower):
+            adjusted["A"] = adjusted.get("A", 3.0) + 0.28 * confidence_scale
+            adjusted["N"] = adjusted.get("N", 3.0) - 0.15 * confidence_scale
+            adjusted["O"] = adjusted.get("O", 3.0) - 0.18 * confidence_scale
 
-            if trait == "EMPATHY_HARMONY_A" and has_empathy_validation_context(text_lower):
-                adjusted["A"] = adjusted.get("A", 3.0) + 0.28 * confidence_scale
-                adjusted["N"] = adjusted.get("N", 3.0) - 0.15 * confidence_scale
-                adjusted["O"] = adjusted.get("O", 3.0) - 0.18 * confidence_scale
-
-            if trait == "RELATIONSHIP_AFFECTION" and has_relationship_affection_context(text_lower):
-                adjusted["A"] = adjusted.get("A", 3.0) + 0.35 * confidence_scale
-                adjusted["E"] = adjusted.get("E", 3.0) + 0.1 * confidence_scale
-                adjusted["N"] = adjusted.get("N", 3.0) - 0.1 * confidence_scale
-                adjusted["O"] = adjusted.get("O", 3.0) - 0.18 * confidence_scale
+        if trait == "RELATIONSHIP_AFFECTION" and has_relationship_affection_context(text_lower):
+            adjusted["A"] = adjusted.get("A", 3.0) + 0.35 * confidence_scale
+            adjusted["E"] = adjusted.get("E", 3.0) + 0.1 * confidence_scale
+            adjusted["N"] = adjusted.get("N", 3.0) - 0.1 * confidence_scale
+            adjusted["O"] = adjusted.get("O", 3.0) - 0.18 * confidence_scale
 
     if positive_ctx and not distress_lang:
         adjusted["EXTREME_ALERT"] = min(adjusted["EXTREME_ALERT"], 0.5)
