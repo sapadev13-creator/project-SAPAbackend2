@@ -136,7 +136,7 @@ def compute_ocean_prediction_lite(
     )
     adjusted = apply_emotional_keyword_adjustment(work_text, adjusted, confidence_scale=conf)
     adjusted, modifier_analysis = apply_modifier_ocean_adjustment(
-        work_text, adjusted, confidence_scale=conf
+        adjusted, work_text, confidence_scale=conf
     )
 
     crisis_level = detect_crisis_level(work_text)
