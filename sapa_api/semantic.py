@@ -58,6 +58,28 @@ def prepare_embedding_index():
     emb = np.asarray(state.ONT_EMBEDDINGS, dtype=np.float32)
     state.ONT_EMB_NORM = _normalize_rows(emb)
 
+    # --- Fast phrase-hit indices (untuk mode Excel fast: skip embedding) ---
+    # state.ONT_META entries: {"lexeme": "...", "sub_trait": "...", ...}
+    # Build:
+    # - ngram index (lexeme with >=2 parts) for exact underscore n-gram lookup
+    # - single index (1-part lexeme) for token lookup
+    ngram_index: dict[str, list[int]] = {}
+    single_index: dict[str, list[int]] = {}
+    if state.ONT_META:
+        for i, meta in enumerate(state.ONT_META):
+            lex = str(meta.get("lexeme", "")).strip().lower()
+            if not lex:
+                continue
+            parts = lex.split("_")
+            if len(parts) >= 2:
+                ngram_index.setdefault(lex, []).append(int(i))
+            else:
+                tok = parts[0]
+                if tok and len(tok) >= 6 and is_meaningful_token(tok):
+                    single_index.setdefault(tok, []).append(int(i))
+    state.ONT_NGRAM_INDEX = ngram_index
+    state.ONT_SINGLE_INDEX = single_index
+
 
 def encode_text(text: str) -> np.ndarray | None:
     batch = encode_texts_batch([text])
@@ -94,15 +116,26 @@ def _phrase_ontology_hits(tokens: list[str], token_set: set[str]) -> dict[int, f
     if not state.ONT_META:
         return hits
 
-    text_underscore = "_".join(tokens)
-    for i, meta in enumerate(state.ONT_META):
-        lexeme = str(meta["lexeme"])
-        parts = lexeme.split("_")
-        if len(parts) >= 2 and lexeme in text_underscore:
-            hits[i] = max(hits.get(i, 0), SEMANTIC_PHRASE_BOOST)
-        elif len(parts) == 1 and is_meaningful_token(parts[0]) and parts[0] in token_set:
-            if len(parts[0]) >= 6:
+    # Fast path using indices (built at startup)
+    ngram_idx = getattr(state, "ONT_NGRAM_INDEX", None) or {}
+    single_idx = getattr(state, "ONT_SINGLE_INDEX", None) or {}
+
+    # 1) Single-token lexeme hits (length>=6 only)
+    for tok in token_set:
+        if len(tok) >= 6 and tok in single_idx:
+            for i in single_idx[tok]:
                 hits[i] = max(hits.get(i, 0), 0.72)
+
+    # 2) Multi-token lexeme hits via n-gram lookup
+    # Build underscore n-grams up to small max_n to keep it cheap.
+    max_n = 5
+    n_tokens = len(tokens)
+    for n in range(2, min(max_n, n_tokens) + 1):
+        for start in range(0, n_tokens - n + 1):
+            lex = "_".join(tokens[start : start + n])
+            if lex in ngram_idx:
+                for i in ngram_idx[lex]:
+                    hits[i] = max(hits.get(i, 0), SEMANTIC_PHRASE_BOOST)
     return hits
 
 

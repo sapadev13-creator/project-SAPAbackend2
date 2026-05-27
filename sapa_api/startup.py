@@ -31,12 +31,26 @@ def load_ontology_and_model():
 
     state.subtrait2id = {s: i for i, s in enumerate(state.SUBTRAITS)}
     state.LEXICON = defaultdict(list)
+    state.LEXICON_PATTERNS = []
+    state.TOKEN_TO_PATTERN_IDS = defaultdict(list)
     for _, row in state.ontology_df.iterrows():
-        state.LEXICON[row["sub_trait"]].append({
-            "tokens": set(row["tokens"]),
+        sub_trait = row["sub_trait"]
+        tokens = [t for t in row["tokens"] if t]
+        tok_set = set(tokens)
+        pat = {
+            "sub_trait": sub_trait,
+            "tokens": tok_set,
             "strength": float(row["strength"]),
             "lexeme": row["lexeme"],
-        })
+        }
+        state.LEXICON[sub_trait].append(pat)
+
+        pid = len(state.LEXICON_PATTERNS)
+        state.LEXICON_PATTERNS.append(pat)
+        # Inverted index by token to reduce scanning cost
+        for t in tok_set:
+            if t:
+                state.TOKEN_TO_PATTERN_IDS[t].append(pid)
 
     ont_emb = torch.load(ONTOLOGY_EMB, map_location="cpu")
     state.ONT_EMBEDDINGS = ont_emb["embeddings"].numpy()

@@ -1586,3 +1586,48 @@
 2026-05-26 20:09:24,481 | INFO | FastAPI app starting...
 2026-05-26 20:09:24,486 | INFO | \U0001f680 Startup loading ontology & model
 2026-05-26 20:09:26,670 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:00:18,435 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:00:22,419 | INFO | FastAPI app starting...
+2026-05-27 09:00:22,425 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:00:24,671 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:00:26,932 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:00:30,661 | INFO | FastAPI app starting...
+2026-05-27 09:00:30,667 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:00:32,794 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:04:18,801 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:04:22,725 | INFO | FastAPI app starting...
+2026-05-27 09:04:22,732 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:04:25,047 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:04:27,396 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:04:31,617 | INFO | FastAPI app starting...
+2026-05-27 09:04:31,627 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:04:33,749 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:04:36,104 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:04:39,961 | INFO | FastAPI app starting...
+2026-05-27 09:04:39,967 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:04:42,129 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:04:55,829 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:07:18,066 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:07:21,923 | INFO | FastAPI app starting...
+2026-05-27 09:07:21,929 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:07:24,199 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:07:26,475 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:07:30,358 | INFO | FastAPI app starting...
+2026-05-27 09:07:30,365 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:07:32,596 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:07:34,890 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:07:38,689 | INFO | FastAPI app starting...
+2026-05-27 09:07:38,696 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:07:40,835 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:07:43,064 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:07:46,814 | INFO | FastAPI app starting...
+2026-05-27 09:07:46,819 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:07:49,041 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:08:26,747 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:10:43,807 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:11:20,187 | INFO | Note: NumExpr detected 12 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2026-05-27 09:11:23,938 | INFO | FastAPI app starting...
+2026-05-27 09:11:23,944 | INFO | \U0001f680 Startup loading ontology & model
+2026-05-27 09:11:26,095 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:12:21,262 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858
+2026-05-27 09:12:22,260 | INFO | \u2705 Startup OK | LEXICAL_SIZE=59 | fuzzy_vocab=6416 phrases=17858

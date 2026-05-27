@@ -193,9 +193,11 @@ def normalize_text_typos(text: str) -> NormalizedText:
     corrected_tokens, fixes = correct_tokens(tokens)
     normalized = " ".join(corrected_tokens)
 
-    # Koreksi frasa utuh (sliding window) jika token sudah hampir benar
-    normalized, phrase_fixes = _correct_phrases_in_text(normalized)
-    fixes.extend(phrase_fixes)
+    # Koreksi frasa utuh (sliding window) sangat mahal jika vocab/phrases besar.
+    # Jalankan hanya bila ada indikasi typo token (fixes tidak kosong).
+    if fixes:
+        normalized, phrase_fixes = _correct_phrases_in_text(normalized)
+        fixes.extend(phrase_fixes)
 
     return NormalizedText(
         original=original,

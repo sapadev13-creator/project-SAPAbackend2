@@ -27,13 +27,21 @@ def build_lexical_vector_with_analysis(
     subtrait_scores = defaultdict(float)
     evidence = defaultdict(list)
 
-    for subtrait, patterns in state.LEXICON.items():
-        sid = state.subtrait2id[subtrait]
-        for p in patterns:
+    # Fast path: use inverted index token -> pattern_ids (built at startup)
+    patterns = getattr(state, "LEXICON_PATTERNS", None)
+    inv = getattr(state, "TOKEN_TO_PATTERN_IDS", None)
+    if patterns and inv:
+        candidate_ids = set()
+        for t in token_set:
+            ids = inv.get(t)
+            if ids:
+                candidate_ids.update(ids)
+
+        for pid in candidate_ids:
+            p = patterns[pid]
             overlap = {t for t in (p["tokens"] & token_set) if is_meaningful_token(t)}
             if not overlap:
                 continue
-
             ratio = len(overlap) / len(p["tokens"])
             if ratio == 1.0:
                 score = 2.0 * p["strength"]
@@ -41,7 +49,8 @@ def build_lexical_vector_with_analysis(
                 score = 0.5 * p["strength"]
             else:
                 continue
-
+            subtrait = p["sub_trait"]
+            sid = state.subtrait2id[subtrait]
             vec[sid] += score
             subtrait_scores[subtrait] += score
             matched_tokens |= overlap
@@ -51,6 +60,32 @@ def build_lexical_vector_with_analysis(
                 "score": round(score, 3),
                 "match_type": "exact",
             })
+    else:
+        # Fallback: older loop
+        for subtrait, pats in state.LEXICON.items():
+            sid = state.subtrait2id[subtrait]
+            for p in pats:
+                overlap = {t for t in (p["tokens"] & token_set) if is_meaningful_token(t)}
+                if not overlap:
+                    continue
+
+                ratio = len(overlap) / len(p["tokens"])
+                if ratio == 1.0:
+                    score = 2.0 * p["strength"]
+                elif ratio >= 0.5:
+                    score = 0.5 * p["strength"]
+                else:
+                    continue
+
+                vec[sid] += score
+                subtrait_scores[subtrait] += score
+                matched_tokens |= overlap
+                evidence[subtrait].append({
+                    "lexeme": p["lexeme"],
+                    "matched_tokens": list(overlap),
+                    "score": round(score, 3),
+                    "match_type": "exact",
+                })
 
     semantic_matches = compute_semantic_matches(
         text,
