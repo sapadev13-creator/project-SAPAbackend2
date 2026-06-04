@@ -35,6 +35,26 @@ CATEGORY_PERSONA: dict[str, tuple[str, str, int]] = {
         "emosional, mudah tersulut, impulsif saat tertekan",
         120,
     ),
+    "RAGE_OVERFLOW": (
+        "Marah Meledak & Tak Terkendali",
+        "luapan kemarahan yang meledak, sulit ditahan, dan cenderung impulsif",
+        135,
+    ),
+    "EMO_SURGE": (
+        "Emosional Meluap",
+        "emosi yang berlebih, meluap, dan sulit dikendalikan dalam situasi tekanan",
+        128,
+    ),
+    "CRITICAL_HOSTILE": (
+        "Kritis & Menyerang",
+        "nada tajam, sinis, suka menyerang atau mempermalukan orang lain",
+        126,
+    ),
+    "HATRED_EMO": (
+        "Penuh Kebencian & Dendam",
+        "menyimpan kebencian mendalam, menolak, dan sulit memaafkan",
+        132,
+    ),
     "MENTAL_UNSTABLE_N": (
         "Burnout & Labil Emosional",
         "kelelahan mental, mood tidak stabil, dan mudah drop",
@@ -124,7 +144,12 @@ INTENT_PRIMARY_TO_CATEGORY: dict[str, str | None] = {
     "adaptive": "ADAPTIVE_FLEX",
     "anxiety": "ANXIETY_EMO",
     "sad": "SAD_EMO",
+    "emotional_burden": "EMO_NEGATIVE",
     "anger": "ANGER_EMO",
+    "rage": "RAGE_OVERFLOW",
+    "emotion_surge": "EMO_SURGE",
+    "critical_hostile": "CRITICAL_HOSTILE",
+    "hatred": "HATRED_EMO",
     "creative": "CREATIVE_DISCUSSION_A",
     "discipline": "DISCIPLINE_C",
     "achievement": "ACHIEVEMENT",
@@ -181,7 +206,10 @@ def _compatible(
         )
     if category == "EMPATHY_HARMONY_A":
         return validation or ps.get("A", 0) >= 2.7
-    if category in ("ANXIETY_EMO", "SAD_EMO", "ANGER_EMO", "MENTAL_UNSTABLE_N", "EMO_NEGATIVE"):
+    if category in (
+        "ANXIETY_EMO", "SAD_EMO", "ANGER_EMO", "RAGE_OVERFLOW", "EMO_SURGE",
+        "CRITICAL_HOSTILE", "HATRED_EMO", "MENTAL_UNSTABLE_N", "EMO_NEGATIVE",
+    ):
         return ps.get("N", 0) >= 2.8
     if category in ("POSITIVE_SOCIAL", "EXTRAVERSION_E", "E_SOCIAL_DEPENDENCY"):
         return ps.get("E", 0) >= 2.3 or ps.get("A", 0) >= 2.8

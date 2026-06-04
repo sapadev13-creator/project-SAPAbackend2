@@ -49,5 +49,5 @@ app.include_router(router)
 
 @app.on_event("startup")
 def startup_event():
-    logger.info("🚀 Startup loading ontology & model")
+    logger.info("Startup loading ontology & model")
     load_ontology_and_model()

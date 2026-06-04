@@ -3,6 +3,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from sapa_api.device_utils import build_device_info, detect_inference_device
+
 load_dotenv()
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -15,7 +17,9 @@ ONTOLOGY_EMB = BASE_DIR / "ontology_embeddings.pt"
 KEYWORDS_XLSX = BASE_DIR / "keywords_traits.xlsx"
 
 HF_REPO = "sapadev13/sapa_ocean_id"
-DEVICE = "cpu"
+
+DEVICE = detect_inference_device()
+DEVICE_INFO = build_device_info(DEVICE)
 MAX_LEN = 256
 
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
@@ -85,4 +89,8 @@ TRAIT_LIST_NAMES = [
     "E_SOCIAL_DEPENDENCY",
     "EMPATHY_HARMONY_A",
     "MENTAL_UNSTABLE_N",
+    "RAGE_OVERFLOW",
+    "EMO_SURGE",
+    "CRITICAL_HOSTILE",
+    "HATRED_EMO",
 ]

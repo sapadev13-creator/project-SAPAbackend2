@@ -7,7 +7,7 @@ from transformers import AutoModel, AutoTokenizer
 
 from app.logger_setup import logger
 from sapa_api import state
-from sapa_api.config import DEVICE, HF_REPO, ONTOLOGY_CSV, ONTOLOGY_EMB
+from sapa_api.config import DEVICE, DEVICE_INFO, HF_REPO, ONTOLOGY_CSV, ONTOLOGY_EMB
 from sapa_api.model_def import OceanModel
 from sapa_api.fuzzy_match import build_fuzzy_index
 from sapa_api.semantic import prepare_embedding_index
@@ -68,7 +68,9 @@ def load_ontology_and_model():
     state.model.eval()
 
     n_words, n_phrases = build_fuzzy_index()
+    gpu_label = DEVICE_INFO.get("gpu_name") or "CPU"
     logger.info(
-        f"✅ Startup OK | LEXICAL_SIZE={state.LEXICAL_SIZE} | "
+        f"Startup OK | device={DEVICE} ({gpu_label}) | "
+        f"LEXICAL_SIZE={state.LEXICAL_SIZE} | "
         f"fuzzy_vocab={n_words} phrases={n_phrases}"
     )

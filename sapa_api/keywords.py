@@ -58,6 +58,10 @@ for trait, words in TRAIT_KEYWORDS.items():
 KEYWORD_TRAIT_MAP = {
     # Optimized weights untuk prediksi lebih akurat (v2.1)
     "ANGER_EMO": {"N": 0.5, "A": -0.2, "C": -0.1},
+    "RAGE_OVERFLOW": {"N": 0.78, "A": -0.38, "C": -0.28, "E": 0.08},
+    "EMO_SURGE": {"N": 0.68, "A": -0.22, "C": -0.18, "E": 0.05},
+    "CRITICAL_HOSTILE": {"N": 0.58, "A": -0.42, "O": 0.06, "C": -0.12, "E": -0.08},
+    "HATRED_EMO": {"N": 0.72, "A": -0.48, "E": -0.18, "C": -0.12, "O": -0.05},
     "SAD_EMO": {"N": 0.4, "O": 0.05, "E": -0.1},
     "ANXIETY_EMO": {"N": 0.55, "E": -0.2, "O": -0.1},
     "MENTAL_UNSTABLE_N": {"N": 0.8, "C": -0.2},
@@ -81,6 +85,10 @@ KEYWORD_TRAIT_MAP = {
 # Saat keyword sama ada di banyak sheet-kategori, hanya kategori prioritas tertinggi
 TRAIT_MATCH_PRIORITY = (
     "EXTREME_NEGATIVE",
+    "HATRED_EMO",
+    "RAGE_OVERFLOW",
+    "CRITICAL_HOSTILE",
+    "EMO_SURGE",
     "ANXIETY_EMO",
     "SAD_EMO",
     "ANGER_EMO",
@@ -113,7 +121,8 @@ POSITIVE_TRAITS = frozenset({
 })
 
 NEGATIVE_TRAITS = frozenset({
-    "ANGER_EMO", "SAD_EMO", "ANXIETY_EMO", "NEGATIVE_SOCIAL",
+    "ANGER_EMO", "RAGE_OVERFLOW", "EMO_SURGE", "CRITICAL_HOSTILE", "HATRED_EMO",
+    "SAD_EMO", "ANXIETY_EMO", "NEGATIVE_SOCIAL",
     "EXTREME_NEGATIVE", "MENTAL_UNSTABLE_N", "EMO_NEGATIVE",
 })
 
@@ -308,7 +317,10 @@ def apply_emotional_keyword_adjustment(
 
     neg_score = sum(
         counter[w] for w in tokens
-        if is_meaningful_token(w) and w in ANGER_EMO + SAD_EMO + ANXIETY_EMO
+        if is_meaningful_token(w) and w in (
+            ANGER_EMO + RAGE_OVERFLOW + EMO_SURGE + CRITICAL_HOSTILE + HATRED_EMO
+            + SAD_EMO + ANXIETY_EMO
+        )
     )
     pos_score = sum(
         counter[w] for w in tokens

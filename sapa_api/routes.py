@@ -3,10 +3,9 @@ import hashlib
 import logging
 import os
 
-import pandas as pd
 import tweepy
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from oauthlib.common import generate_token
 from pydantic import BaseModel
 from requests_oauthlib import OAuth2Session
@@ -15,6 +14,7 @@ from sapa_api import state
 from sapa_api.config import (
     AUTH_URL,
     DEVICE,
+    DEVICE_INFO,
     FRONTEND_URL,
     TOKEN_URL,
     TWITTER_CLIENT_ID,
@@ -42,6 +42,7 @@ def root():
     return {
         "service": "SAPA OCEAN API",
         "device": DEVICE,
+        "device_info": DEVICE_INFO,
         "subtraits": state.LEXICAL_SIZE,
         "status": "OK",
     }
@@ -166,22 +167,18 @@ def _process_excel_upload_sync(
     include_row_details: bool,
     include_charts: bool,
 ):
-    from io import BytesIO
-
     from sapa_api.batch_processing import process_texts_batch
+    from sapa_api.excel_runtime_log import ExcelRuntimeLog
+    from sapa_api.excel_template import parse_excel_upload
 
     if not filename.endswith(".xlsx"):
         raise HTTPException(400, "File harus berformat .xlsx")
 
-    df = pd.read_excel(BytesIO(file_bytes))
-    if "text" not in df.columns:
-        raise HTTPException(400, "Excel harus memiliki kolom 'text'")
+    _, items = parse_excel_upload(file_bytes)
 
-    items: list[tuple[int, str]] = []
-    for idx, row in df.iterrows():
-        text = str(row["text"])
-        if text.strip():
-            items.append((int(idx), text))
+    mode = "excel_profile" if with_profile else "excel"
+    runtime = ExcelRuntimeLog(mode=mode, filename=filename)
+    runtime.start(len(items), filename)
 
     results, timing = process_texts_batch(
         items,
@@ -189,6 +186,9 @@ def _process_excel_upload_sync(
         batch_size=max(1, min(batch_size, 64)),
         include_charts=include_charts,
         include_heavy_details=include_row_details,
+        on_row_start=runtime.log_row_start,
+        on_row_complete=runtime.log_row,
+        on_chunk_start=runtime.log_chunk,
     )
 
     df_detail = build_excel_rows(results)
@@ -204,6 +204,7 @@ def _process_excel_upload_sync(
     payload = {
         "status": "success",
         "processing": timing,
+        "runtime_log": runtime.finish(timing),
         "excel": {
             "filename": (
                 "ocean_profile_result.xlsx" if with_profile else "ocean_result.xlsx"
@@ -246,6 +247,20 @@ async def _process_excel_upload(
         batch_size=batch_size,
         include_row_details=include_row_details,
         include_charts=include_charts,
+    )
+
+
+@router.get("/predict/excel/template")
+def download_excel_template():
+    from sapa_api.excel_template import EXCEL_TEMPLATE_FILENAME, build_template_excel_bytes
+
+    buffer = build_template_excel_bytes()
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{EXCEL_TEMPLATE_FILENAME}"',
+        },
     )
 
 

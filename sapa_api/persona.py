@@ -140,14 +140,20 @@ def generate_explanation_suggestion_super(
             "jika pola ini berlangsung dan mengganggu fungsi sehari-hari."
         )
     elif text_intent.primary in (
-        "anxiety", "sad", "anger", "crisis", "creative", "discipline",
+        "anxiety", "sad", "emotional_burden", "anger", "rage", "emotion_surge", "critical_hostile",
+        "hatred", "crisis", "creative", "discipline",
         "achievement", "social_positive", "social_dependency", "negative_social",
         "relationship_affection", "adaptive", "empathy_validation",
     ):
         intent_labels = {
             "anxiety": "kecemasan (N)",
             "sad": "kesedihan (N)",
+            "emotional_burden": "beban emosional / luka batin (N)",
             "anger": "kemarahan (N)",
+            "rage": "luapan kemarahan (N)",
+            "emotion_surge": "luapan emosi (N)",
+            "critical_hostile": "kritis menyerang (N)",
+            "hatred": "kebencian (N)",
             "crisis": "risiko krisis (N)",
             "creative": "keterbukaan ide (O)",
             "discipline": "ketelitian (C)",
@@ -389,7 +395,9 @@ def generate_persona_profile(
         elif label == "Tempramental":
             if crisis or not cond(ps):
                 continue
-            if distress and text_intent.primary not in ("anger",):
+            if distress and text_intent.primary not in (
+                "anger", "rage", "emotion_surge", "critical_hostile", "hatred",
+            ):
                 continue
         elif label == "Perfeksionis Produktif":
             if text_intent.primary == "discipline":
@@ -428,7 +436,8 @@ def generate_persona_profile(
             prio = 125
         elif label == "Seimbang Adaptif":
             if text_intent.primary in (
-                "anxiety", "sad", "anger", "crisis", "empathy_validation",
+                "anxiety", "sad", "emotional_burden", "anger", "rage", "emotion_surge",
+                "critical_hostile", "hatred", "crisis", "empathy_validation",
                 "creative", "discipline", "achievement", "social_positive",
                 "relationship_affection",
             ):

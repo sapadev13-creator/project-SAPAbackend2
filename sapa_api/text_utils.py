@@ -145,8 +145,11 @@ CRISIS_LANGUAGE_HINTS = (
 # Distres emosional — menaikkan N, bukan krisis
 DISTRESS_LANGUAGE_HINTS = (
     "cemas", "stres", "stress", "gelisah", "khawatir", "panik", "takut",
-    "sedih", "depresi", "marah", "benci", "kecewa", "frustasi",
-    "kepikiran", "overthinking", "terganggu", "putus asa",
+    "sedih", "depresi", "marah", "kemarahan", "benci", "kebencian", "kecewa",
+    "frustasi", "kritis", "kepikiran", "overthinking", "terganggu", "putus asa",
+    "emosi", "dendam", "murka", "geram", "bacot", "tolol", "bangsat", "keparat",
+    "brengsek", "mengacau", "ngaco", "ngamuk", "suram", "bobrok", "bullshit",
+    "bulshit", "muak", "jijik", "toxic",
 )
 
 MIN_SINGLE_KEYWORD_LEN = 4

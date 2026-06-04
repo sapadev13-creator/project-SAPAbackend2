@@ -40,9 +40,48 @@ SAD_PHRASES = (
     "terpuruk", "tidak bersemangat", "kehilangan motivasi",
 )
 
+EMO_BURDEN_PHRASES = (
+    "hidup suram", "suram banget", "bobrok banget", "hidup bobrok",
+    "mental hancur", "hancur banget", "ancur banget", "down bad",
+    "mental bobrok", "perasaan suram", "lelah hidup", "ancur total",
+    "hidup hancur", "mood suram", "emosi suram", "perasaan bobrok",
+)
+
 ANGER_PHRASES = (
     "mudah marah", "naik pitam", "meledak emosi", "frustrasi berat",
     "kesal berat", "sulit mengendalikan emosi",
+)
+
+RAGE_OVERFLOW_PHRASES = (
+    "luapan kemarahan", "marah meledak", "ledakan kemarahan", "kemarahan meledak",
+    "marah tidak terkontrol", "marah berlebihan", "ledakan emosi marah",
+    "sulit menahan marah", "marah tak terkendali", "emosi marah meledak",
+    "kemarahan yang meluap", "marah sampai meledak",
+    "mengacau banget", "ngacau banget", "ngamuk banget", "ngegas banget",
+    "emosi meledak", "marah banget", "kesel parah",
+)
+
+EMO_SURGE_PHRASES = (
+    "luapan emosi", "emosi meluap", "emosi tak terkendali", "emosi berlebihan",
+    "gelombang emosi", "emosi yang meluap", "emosi tidak terkendali",
+    "emosi yang berlebihan", "emosi naik tajam", "emosi meledak keluar",
+)
+
+CRITICAL_HOSTILE_PHRASES = (
+    "sangat kritis", "kritis dan tajam", "suka mencaci", "suka menyerang",
+    "nada sinis", "kritik tajam", "suka mempermalukan", "kritis terhadap orang",
+    "menyerang orang", "suka mengejek", "komentar sinis", "kritik menusuk",
+    "bacot mulu", "bacot terus", "tolol banget", "bullshit banget", "bulshit banget",
+    "ngaco banget", "nyindir terus", "sok tau", "toxic banget", "kaga pernah inget dosa",
+    "gak pernah inget dosa", "munafik banget", "sok suci padahal",
+)
+
+HATRED_PHRASES = (
+    "kebencian", "penuh kebencian", "membenci", "benci berat", "rasa benci",
+    "menyimpan kebencian", "kebencian mendalam", "benci sekali", "membenci orang",
+    "rasa kebencian", "benci dan dendam", "kebencian yang dalam",
+    "bangsat lu", "bangsat banget", "keparat lu", "keparat emang", "brengsek banget",
+    "benci banget", "benci lu", "muak banget", "muak sama", "jijik banget",
 )
 
 ADAPTIVE_PHRASES = (
@@ -100,6 +139,10 @@ TRAIT_CATEGORY_TO_OCEAN: dict[str, str] = {
     "ANXIETY_EMO": "N",
     "SAD_EMO": "N",
     "ANGER_EMO": "N",
+    "RAGE_OVERFLOW": "N",
+    "EMO_SURGE": "N",
+    "CRITICAL_HOSTILE": "N",
+    "HATRED_EMO": "N",
     "MENTAL_UNSTABLE_N": "N",
     "EMO_NEGATIVE": "N",
     "NEGATIVE_SOCIAL": "N",
@@ -121,7 +164,12 @@ INTENT_TO_OCEAN: dict[str, str] = {
     "crisis": "N",
     "anxiety": "N",
     "sad": "N",
+    "emotional_burden": "N",
     "anger": "N",
+    "rage": "N",
+    "emotion_surge": "N",
+    "critical_hostile": "N",
+    "hatred": "N",
     "empathy_validation": "A",
     "adaptive": "A",
     "social_positive": "E",
@@ -160,8 +208,18 @@ class TextIntent:
             boosts.update({"N": 0.35, "E": -0.12, "O": -0.08})
         elif p == "sad":
             boosts.update({"N": 0.3, "E": -0.1})
+        elif p == "emotional_burden":
+            boosts.update({"N": 0.32, "E": -0.12, "A": -0.1, "O": 0.04})
         elif p == "anger":
             boosts.update({"N": 0.3, "A": -0.1})
+        elif p == "rage":
+            boosts.update({"N": 0.42, "A": -0.22, "C": -0.15})
+        elif p == "emotion_surge":
+            boosts.update({"N": 0.38, "A": -0.15, "C": -0.12})
+        elif p == "critical_hostile":
+            boosts.update({"N": 0.35, "A": -0.28, "E": -0.1})
+        elif p == "hatred":
+            boosts.update({"N": 0.45, "A": -0.35, "E": -0.15, "C": -0.1})
         elif p == "empathy_validation":
             boosts.update({"A": 0.4, "N": -0.2, "O": -0.22, "E": 0.05})
         elif p == "adaptive":
@@ -242,6 +300,26 @@ def classify_text_intent(
         if not has_positive_context(t):
             return TextIntent("sad", matched_phrases=matched, category_hits=cat_hits)
 
+    if p := _first_match(t, EMO_BURDEN_PHRASES):
+        matched.append(("emotional_burden", p))
+        return TextIntent("emotional_burden", matched_phrases=matched, category_hits=cat_hits)
+
+    if p := _first_match(t, HATRED_PHRASES):
+        matched.append(("hatred", p))
+        return TextIntent("hatred", matched_phrases=matched, category_hits=cat_hits)
+
+    if p := _first_match(t, RAGE_OVERFLOW_PHRASES):
+        matched.append(("rage", p))
+        return TextIntent("rage", matched_phrases=matched, category_hits=cat_hits)
+
+    if p := _first_match(t, CRITICAL_HOSTILE_PHRASES):
+        matched.append(("critical_hostile", p))
+        return TextIntent("critical_hostile", matched_phrases=matched, category_hits=cat_hits)
+
+    if p := _first_match(t, EMO_SURGE_PHRASES):
+        matched.append(("emotion_surge", p))
+        return TextIntent("emotion_surge", matched_phrases=matched, category_hits=cat_hits)
+
     if p := _first_match(t, ANGER_PHRASES):
         matched.append(("anger", p))
         return TextIntent("anger", matched_phrases=matched, category_hits=cat_hits)
@@ -297,9 +375,33 @@ def classify_text_intent(
         if ocean_from_cat[best_ocean] >= 1:
             intent_map = {
                 "N": (
-                    "negative_social"
-                    if cat_hits.get("NEGATIVE_SOCIAL")
-                    else ("anxiety" if has_distress_language(t) else "sad")
+                    "hatred"
+                    if cat_hits.get("HATRED_EMO")
+                    else (
+                        "rage"
+                        if cat_hits.get("RAGE_OVERFLOW")
+                        else (
+                            "critical_hostile"
+                            if cat_hits.get("CRITICAL_HOSTILE")
+                            else (
+                                "emotion_surge"
+                                if cat_hits.get("EMO_SURGE")
+                                else (
+                                    "anger"
+                                    if cat_hits.get("ANGER_EMO")
+                                    else (
+                                        "emotional_burden"
+                                        if cat_hits.get("EMO_NEGATIVE")
+                                        else (
+                                            "negative_social"
+                                            if cat_hits.get("NEGATIVE_SOCIAL")
+                                            else ("anxiety" if has_distress_language(t) else "sad")
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
                 ),
                 "A": (
                     "empathy_validation"

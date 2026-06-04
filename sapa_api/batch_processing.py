@@ -5,6 +5,7 @@ Pemrosesan batch / Excel — inferensi model & semantic di-chunk agar lebih cepa
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import Any
 
 import torch
@@ -47,7 +48,7 @@ from sapa_api.text_utils import (
 from sapa_api.trait_constructs import construct_evidence
 from sapa_api.viz import generate_ocean_chart
 
-DEFAULT_BATCH_SIZE = 16
+DEFAULT_BATCH_SIZE = 32 if DEVICE.startswith("cuda") or DEVICE == "mps" else 16
 
 
 def _model_raw_scores_batch(
@@ -225,6 +226,9 @@ def process_texts_batch(
     batch_size: int = DEFAULT_BATCH_SIZE,
     include_charts: bool = False,
     include_heavy_details: bool = False,
+    on_row_complete: Callable[[int, dict, float], None] | None = None,
+    on_row_start: Callable[[int], None] | None = None,
+    on_chunk_start: Callable[[int, int], None] | None = None,
 ) -> tuple[list[dict], dict]:
     """
     items: [(row_index, original_text), ...]
@@ -238,6 +242,9 @@ def process_texts_batch(
 
     for start in range(0, len(items), batch_size):
         chunk = items[start : start + batch_size]
+        if on_chunk_start is not None:
+            on_chunk_start(start + 1, min(start + len(chunk), len(items)))
+
         work_texts: list[str] = []
         originals: list[str] = []
         indices: list[int] = []
@@ -270,6 +277,9 @@ def process_texts_batch(
         raw_scores = _model_raw_scores_batch(work_texts, lexical_tensors)
 
         for i, idx in enumerate(indices):
+            if on_row_start is not None:
+                on_row_start(idx)
+            row_t0 = time.perf_counter()
             pred = compute_ocean_prediction_lite(
                 originals[i],
                 precomputed_raw=raw_scores[i],
@@ -281,6 +291,8 @@ def process_texts_batch(
             )
             pred["row_index"] = idx
             results.append(pred)
+            if on_row_complete is not None:
+                on_row_complete(idx, pred, time.perf_counter() - row_t0)
 
     elapsed = time.perf_counter() - t0
     stats = {
@@ -289,5 +301,6 @@ def process_texts_batch(
         "rows_per_second": round(len(results) / elapsed, 2) if elapsed > 0 else 0,
         "fast_mode": fast,
         "batch_size": batch_size,
+        "device": DEVICE,
     }
     return results, stats
