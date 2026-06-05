@@ -8,10 +8,12 @@ from sapa_api.text_utils import (
     has_crisis_language,
     has_distress_language,
     has_empathy_validation_context,
-    has_relationship_affection_context,
     has_positive_context,
+    has_relationship_affection_context,
+    has_resilience_arc,
     is_meaningful_token,
     ocean_only,
+    _has_unnegated_phrase,
 )
 from sapa_api.sentiment_modifiers import analyze_modifiers
 from sapa_api.phrase_intent import TextIntent, classify_text_intent
@@ -91,6 +93,151 @@ def _has_distress_not_crisis(text_lower: str, adjusted: dict) -> bool:
     )
 
 
+OCEAN_TRAIT_LABELS = {
+    "O": ("Openness (O)", "keterbukaan ide, imajinasi, dan rasa ingin tahu"),
+    "C": ("Conscientiousness (C)", "ketelitian, disiplin, dan orientasi tujuan"),
+    "E": ("Extraversion (E)", "energi sosial, ekspresif, dan aktif berinteraksi"),
+    "A": ("Agreeableness (A)", "empati, kerja sama, dan orientasi harmonis"),
+    "N": ("Neuroticism (N)", "kecemasan, stres, atau kerentanan emosional"),
+}
+
+INTENT_EXPLANATION_LABELS = {
+    "anxiety": "kecemasan (N)",
+    "sad": "kesedihan (N)",
+    "emotional_burden": "beban emosional / luka batin (N)",
+    "anger": "kemarahan (N)",
+    "rage": "luapan kemarahan (N)",
+    "emotion_surge": "luapan emosi (N)",
+    "critical_hostile": "kritis menyerang (N)",
+    "hatred": "kebencian (N)",
+    "crisis": "risiko krisis (N)",
+    "creative": "keterbukaan ide (O)",
+    "discipline": "ketelitian (C)",
+    "achievement": "orientasi prestasi (C)",
+    "social_positive": "sosial aktif (E)",
+    "social_dependency": "afiliasi & butuh dukungan (E)",
+    "negative_social": "menghindar & isolasi sosial (N)",
+    "relationship_affection": "romantis & afeksi hubungan (A)",
+    "adaptive": "adaptasi positif (A/E)",
+    "empathy_validation": "validasi emosional (A)",
+    "mixed_positive": "positif adaptif dengan empati & optimisme (A)",
+}
+
+
+def _should_use_distress_explanation(
+    text_lower: str,
+    adjusted: dict,
+    text_intent: TextIntent,
+    dominant: str,
+) -> bool:
+    """Penjelasan distres (N) hanya jika N benar-benar dominan atau intent negatif."""
+    if not _has_distress_not_crisis(text_lower, adjusted):
+        return False
+
+    ocean = ocean_only(adjusted)
+    n_score = ocean.get("N", 0)
+    dom_score = ocean.get(dominant, 0)
+
+    if dominant != "N" and dom_score >= n_score + 0.25:
+        return False
+
+    if text_intent.primary in (
+        "mixed_positive", "adaptive", "empathy_validation", "relationship_affection",
+        "social_positive", "creative", "discipline", "achievement",
+    ):
+        return False
+
+    if has_resilience_arc(text_lower) or (
+        has_positive_context(text_lower) and text_intent.primary == "mixed_positive"
+    ):
+        return False
+
+    if dominant != "N" and text_intent.primary not in (
+        "anxiety", "sad", "emotional_burden", "anger", "rage", "emotion_surge",
+        "critical_hostile", "hatred", "negative_social",
+    ):
+        return False
+
+    return True
+
+
+def _suggestion_for_dominant(dominant: str, text_intent: TextIntent | None = None) -> str:
+    suggestions = {
+        "O": (
+            "Salurkan rasa ingin tahu ke eksplorasi ide, belajar, atau proyek kreatif "
+            "agar keterbukaan tetap produktif."
+        ),
+        "C": (
+            "Manfaatkan disiplin dan struktur, tetapi sisakan ruang fleksibel agar "
+            "tidak over-perfeksionis."
+        ),
+        "E": (
+            "Optimalkan energi sosial lewat interaksi bermakna dan refleksi diri "
+            "agar tetap seimbang."
+        ),
+        "A": (
+            "Pertahankan empati dan kerja sama; tetapkan batas sehat agar kepedulian "
+            "tidak menguras diri."
+        ),
+        "N": (
+            "Pertimbangkan manajemen stres, journaling, mindfulness, atau konseling "
+            "jika pola ini berlangsung dan mengganggu fungsi sehari-hari."
+        ),
+    }
+    if text_intent and text_intent.primary == "mixed_positive" and dominant == "A":
+        return (
+            "Dukung pola optimisme dan keteguhan yang sudah muncul; jika beban terasa "
+            "menumpuk, bicarakan dengan orang terpercaya atau profesional."
+        )
+    return suggestions.get(dominant, suggestions["A"])
+
+
+def _resilience_indicators(text_lower: str, fallback: str) -> str:
+    distress_hits = [
+        w for w in ("mumet", "beban", "takut", "cemas", "stres", "sedih", "gelisah")
+        if w in text_lower
+    ]
+    positive_hits = [
+        w for w in (
+            "optimis", "tenang", "bangkit", "harus bisa", "semangat", "allah",
+            "bersimpuh", "tabah", "yakin",
+        )
+        if _has_unnegated_phrase(text_lower, w)
+    ]
+    combined = distress_hits[:2] + positive_hits[:3]
+    return ", ".join(combined) if combined else fallback
+
+
+def _build_resilience_explanation(
+    text_lower: str,
+    dominant: str,
+    constructs: str,
+    snippet: str,
+) -> str:
+    trait_name, trait_desc = OCEAN_TRAIT_LABELS.get(dominant, OCEAN_TRAIT_LABELS["A"])
+    indicators = _resilience_indicators(text_lower, constructs or snippet)
+    return (
+        f"Teks menggambarkan beban emosi dan kekhawatiran sementara, namun diimbangi "
+        f"keteguhan dan optimisme untuk bangkit kembali. Kecenderungan dominan "
+        f"{trait_name} — {trait_desc}. Indikator: {indicators}."
+    )
+
+
+def _build_dominant_explanation(
+    dominant: str,
+    constructs: str,
+    snippet: str,
+    *,
+    sem_note: str = "",
+) -> str:
+    trait_name, trait_desc = OCEAN_TRAIT_LABELS.get(dominant, OCEAN_TRAIT_LABELS["A"])
+    indicators = constructs or snippet
+    return (
+        f"Teks menunjukkan kecenderungan {trait_name} — {trait_desc}. "
+        f"Indikator: {indicators}.{sem_note}"
+    )
+
+
 def generate_explanation_suggestion_super(
     text,
     adjusted,
@@ -99,16 +246,21 @@ def generate_explanation_suggestion_super(
     sufficiency: TextSufficiency | None = None,
     construct_matches=None,
     text_intent: TextIntent | None = None,
+    dominant: str | None = None,
 ):
     text_lower = text.lower()
     if text_intent is None:
         text_intent = classify_text_intent(text)
     ocean = ocean_only(adjusted)
-    dominant = max(ocean, key=ocean.get)
+    if dominant is None:
+        dominant = max(ocean, key=ocean.get)
     snippet = ", ".join(extract_keywords(text)[:3])
     sem_snip = _semantic_snippet(semantic_matches)
     if sem_snip:
         snippet = f"{snippet}, {sem_snip}" if snippet else sem_snip
+    constructs = ", ".join(
+        m.phrase for m in (construct_matches or [])[:3]
+    ) or snippet
 
     if _is_crisis_context(adjusted, text_lower):
         explanation = (
@@ -120,10 +272,12 @@ def generate_explanation_suggestion_super(
             "Sangat disarankan segera menghubungi layanan kesehatan mental, "
             "konselor, atau orang terpercaya. Jika darurat, hubungi layanan bantuan krisis."
         )
-    elif _has_distress_not_crisis(text_lower, adjusted):
-        constructs = ", ".join(
-            m.phrase for m in (construct_matches or [])[:3]
-        ) or snippet
+    elif has_resilience_arc(text_lower) and dominant != "N":
+        explanation = _build_resilience_explanation(
+            text_lower, dominant, constructs, snippet
+        )
+        suggestion = _suggestion_for_dominant(dominant, text_intent)
+    elif _should_use_distress_explanation(text_lower, adjusted, text_intent, dominant):
         mod = analyze_modifiers(text_lower)
         mod_txt = ""
         if mod.hits:
@@ -135,69 +289,25 @@ def generate_explanation_suggestion_super(
             f"atau kerentanan emosional (bukan indikasi krisis bunuh diri). "
             f"Indikator: {constructs}.{mod_txt}"
         )
-        suggestion = (
-            "Pertimbangkan manajemen stres, journaling, mindfulness, atau konseling "
-            "jika pola ini berlangsung dan mengganggu fungsi sehari-hari."
-        )
-    elif text_intent.primary in (
-        "anxiety", "sad", "emotional_burden", "anger", "rage", "emotion_surge", "critical_hostile",
-        "hatred", "crisis", "creative", "discipline",
-        "achievement", "social_positive", "social_dependency", "negative_social",
-        "relationship_affection", "adaptive", "empathy_validation",
-    ):
-        intent_labels = {
-            "anxiety": "kecemasan (N)",
-            "sad": "kesedihan (N)",
-            "emotional_burden": "beban emosional / luka batin (N)",
-            "anger": "kemarahan (N)",
-            "rage": "luapan kemarahan (N)",
-            "emotion_surge": "luapan emosi (N)",
-            "critical_hostile": "kritis menyerang (N)",
-            "hatred": "kebencian (N)",
-            "crisis": "risiko krisis (N)",
-            "creative": "keterbukaan ide (O)",
-            "discipline": "ketelitian (C)",
-            "achievement": "orientasi prestasi (C)",
-            "social_positive": "sosial aktif (E)",
-            "social_dependency": "afiliasi & butuh dukungan (E)",
-            "negative_social": "menghindar & isolasi sosial (N)",
-            "relationship_affection": "romantis & afeksi hubungan (A)",
-            "adaptive": "adaptasi positif (A/E)",
-            "empathy_validation": "validasi emosional (A)",
-        }
-        label = intent_labels.get(text_intent.primary, text_intent.primary)
-        constructs = ", ".join(
-            m.phrase for m in (construct_matches or [])[:3]
-        ) or snippet
+        suggestion = _suggestion_for_dominant("N")
+    elif text_intent.primary in INTENT_EXPLANATION_LABELS:
+        label = INTENT_EXPLANATION_LABELS[text_intent.primary]
+        trait_name, _ = OCEAN_TRAIT_LABELS.get(dominant, OCEAN_TRAIT_LABELS["A"])
         explanation = (
             f"Kalimat diklasifikasi sebagai pola {label}. "
+            f"Kecenderungan dominan {trait_name}. "
             f"Indikator linguistik: {constructs}."
         )
-        suggestion = (
-            "Interpretasi mengikuti kombinasi kata dan intent teks, "
-            "bukan skor model mentah saja."
-        )
+        suggestion = _suggestion_for_dominant(dominant, text_intent)
     elif has_empathy_validation_context(text_lower):
-        constructs = ", ".join(
-            m.phrase for m in (construct_matches or [])[:3]
-        ) or snippet
         explanation = (
             f"Kalimat ini menggambarkan validasi emosional dan kelegaan (Agreeableness / A), "
             f"bukan kreativitas terbuka (O) atau distres (N). Indikator: {constructs}."
         )
-        suggestion = (
-            "Lanjutkan ruang aman untuk mengekspresikan perasaan; dukungan mendengarkan "
-            "membantu menjaga kestabilan emosi."
-        )
+        suggestion = _suggestion_for_dominant("A")
     elif has_positive_context(text_lower):
-        explanation = (
-            f"Kalimat ini menunjukkan pola positif/adaptif dengan kecenderungan {dominant} "
-            f"(misalnya: {snippet})."
-        )
-        suggestion = (
-            f"Pertahankan sikap seperti {snippet} untuk mendukung trait {dominant} "
-            "secara seimbang."
-        )
+        explanation = _build_dominant_explanation(dominant, constructs, snippet)
+        suggestion = _suggestion_for_dominant(dominant, text_intent)
     else:
         sem_note = ""
         if semantic_matches:
@@ -206,13 +316,10 @@ def generate_explanation_suggestion_super(
                 f" Ontologi semantik: «{top['lexeme'].replace('_', ' ')}» "
                 f"({top['sub_trait']}, similarity {top['similarity']})."
             )
-        explanation = (
-            f"Kalimat ini menunjukkan kecenderungan {dominant} karena pola seperti "
-            f"{snippet}.{sem_note}"
+        explanation = _build_dominant_explanation(
+            dominant, constructs, snippet, sem_note=sem_note
         )
-        suggestion = (
-            f"Mengamati hal seperti {snippet} dapat membantu memahami trait {dominant}."
-        )
+        suggestion = _suggestion_for_dominant(dominant, text_intent)
     return explanation, suggestion
 
 

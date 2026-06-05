@@ -162,6 +162,7 @@ def compute_ocean_prediction_lite(
         sufficiency=sufficiency,
         construct_matches=construct_matches,
         text_intent=text_intent,
+        dominant=dominant,
     )
     mod_note = modifier_explanation_note(modifier_analysis)
     if mod_note:

@@ -112,6 +112,7 @@ def compute_ocean_prediction(text: str):
         sufficiency=sufficiency,
         construct_matches=construct_matches,
         text_intent=text_intent,
+        dominant=dominant,
     )
 
     mod_note = modifier_explanation_note(modifier_analysis)

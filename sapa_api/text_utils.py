@@ -38,6 +38,12 @@ POSITIVE_CONTEXT_PHRASES = (
     "kerja sama",
     "optimis",
     "semangat",
+    "bangkit",
+    "bangun kembali",
+    "harus bisa",
+    "tabah",
+    "bersabar",
+    "yakin",
     "bangga",
 )
 
@@ -228,6 +234,38 @@ def has_positive_context(text_lower: str) -> bool:
         has_empathy_validation_context(text_lower)
         or any(p in text_lower for p in POSITIVE_CONTEXT_PHRASES)
     )
+
+
+def _has_unnegated_phrase(text_lower: str, phrase: str) -> bool:
+    """True jika frase muncul dan tidak langsung dinegasikan (mis. bukan «tidak tenang»)."""
+    if phrase not in text_lower:
+        return False
+    negations = frozenset({
+        "tidak", "bukan", "gak", "nggak", "ngga", "tak", "belum", "jangan",
+        "tanpa", "ndak", "enggak",
+    })
+    idx = 0
+    while True:
+        pos = text_lower.find(phrase, idx)
+        if pos == -1:
+            return False
+        prefix = text_lower[max(0, pos - 30):pos]
+        prefix_tokens = tokenize(prefix)
+        if not prefix_tokens or prefix_tokens[-1] not in negations:
+            return True
+        idx = pos + len(phrase)
+
+
+def has_resilience_arc(text_lower: str) -> bool:
+    """Distres + pemulihan/optimisme dalam teks yang sama (mis. «tapi ... tenang/optimis»)."""
+    if not has_distress_language(text_lower):
+        return False
+    resilience_markers = (
+        "optimis", "tenang", "bangkit", "harus bisa", "semangat", "tabah",
+        "bersabar", "yakin", "bersimpuh", "doa", "allah", "tuhan", "kuat",
+        "tetap semangat", "bangun kembali", "lega", "ringan hati",
+    )
+    return any(_has_unnegated_phrase(text_lower, m) for m in resilience_markers)
 
 
 def has_crisis_language(text_lower: str) -> bool:
