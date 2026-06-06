@@ -11,7 +11,7 @@ import base64
 import matplotlib.pyplot as plt
 import base64, hashlib
 import pandas as pd
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Body
 from dotenv import load_dotenv
 from io import BytesIO
 from tweepy import OAuth2UserHandler
@@ -134,6 +134,9 @@ def get_twitter_client(access_token, access_token_secret):
     return client
 class TextInput(BaseModel):
     text: str
+
+class TwitterProfileInput(BaseModel):
+    profile_url: str
 
 # ==========================
 # LEXICAL ENGINE
@@ -1003,9 +1006,9 @@ def predict_from_twitter(request: Request):
 import logging
 logging.basicConfig(level=logging.INFO)
 @app.post("/predict/twitter/profile")
-def predict_other_profile(data: dict, request: Request):
+def predict_other_profile(data: TwitterProfileInput, request: Request):
     try:
-        profile_url = data.get("profile_url")
+        profile_url = data.profile_url
         if not profile_url:
             raise HTTPException(400, "Missing profile_url")
 
