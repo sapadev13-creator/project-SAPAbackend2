@@ -37,6 +37,17 @@ class TextInput(BaseModel):
     text: str
 
 
+class TwitterProfileRequest(BaseModel):
+    profile_url: str
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "profile_url": "https://twitter.com/username"
+            }
+        }
+
+
 @router.get("/")
 def root():
     return {
@@ -124,12 +135,13 @@ def predict_from_twitter(request: Request):
 
 
 @router.post("/predict/twitter/profile")
-def predict_other_profile(data: dict, request: Request):
+def predict_other_profile(data: TwitterProfileRequest, request: Request):
     try:
-        profile_url = data.get("profile_url")
+        profile_url = data.profile_url
         if not profile_url:
             raise HTTPException(400, "Missing profile_url")
 
+        # Extract username from URL and normalize it
         username = profile_url.rstrip("/").split("/")[-1].replace("@", "")
         logging.info(f"Fetching tweets for {username}")
 
@@ -137,23 +149,36 @@ def predict_other_profile(data: dict, request: Request):
         if not bearer:
             raise HTTPException(500, "TWITTER_BEARER_TOKEN not set in .env")
 
+        # Use Twitter API v2 with proper bearer token
         app_client = tweepy.Client(bearer_token=bearer)
+        
+        # Get user information using X API v2
         user = app_client.get_user(username=username)
-        logging.info(f"User found: {user.data}")
+        if not user.data:
+            raise HTTPException(404, f"User '{username}' not found")
+        
+        logging.info(f"User found: {user.data.username} (ID: {user.data.id})")
+        
+        # Get user tweets with proper parameters for X API v2
         tweets = app_client.get_users_tweets(
             id=user.data.id,
-            max_results=10,
+            max_results=100,
+            tweet_fields=["created_at", "public_metrics"],
             exclude=["retweets", "replies"],
         )
+        
         if not tweets.data:
-            raise HTTPException(404, "No tweets found")
+            raise HTTPException(404, f"No tweets found for user '{username}'")
 
+        # Combine tweet texts
         text = " ".join(t.text for t in tweets.data)
+        logging.info(f"Collected {len(tweets.data)} tweets for analysis")
+        
         return run_ocean_pipeline(text=text, username=username)
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Error in /predict/twitter/profile: {str(e)}")
+        logging.error(f"Error in /predict/twitter/profile: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Server error: {str(e)}") from e
 
 
